@@ -1,9 +1,12 @@
 // CI/CD pipeline: Checkout → Install/Build → Test → Docker Build → Push Image → Deploy (SSH to EC2) 
+// Default deploy server (terraform output public_ip)
+def DEFAULT_EC2_HOST = '3.254.176.0'
+
 pipeline {
     agent any
 
     parameters {
-        string(name: 'EC2_HOST', defaultValue: '3.254.176.0', description: 'Public IP or DNS of the deploy server (terraform output public_ip)')
+        string(name: 'EC2_HOST', defaultValue: DEFAULT_EC2_HOST, description: 'Public IP or DNS of the deploy server (terraform output public_ip)')
     }
 
     environment {
@@ -11,6 +14,8 @@ pipeline {
         TAG      = "${env.BUILD_NUMBER}"
         APP_NAME = 'cicd-node-app'
         EC2_USER = 'ec2-user'
+        // Parameters are empty on a job's first build, before Jenkins has read the parameters block
+        DEPLOY_HOST = "${params.EC2_HOST ?: DEFAULT_EC2_HOST}"
     }
 
     options {
@@ -76,7 +81,7 @@ pipeline {
             steps {
                 sshagent(credentials: ['ec2_ssh']) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=accept-new "$EC2_USER@$EC2_HOST" bash -s <<EOF
+                        ssh -o StrictHostKeyChecking=accept-new "$EC2_USER@$DEPLOY_HOST" bash -s <<EOF
 set -e
 docker pull "$IMAGE:$TAG"
 docker rm -f "$APP_NAME" 2>/dev/null || true
@@ -90,8 +95,8 @@ EOF
 
         stage('Smoke Test') {
             steps {
-                sh 'curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "http://$EC2_HOST/health"'
-                echo "App is live at http://${params.EC2_HOST}"
+                sh 'curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "http://$DEPLOY_HOST/health"'
+                echo "App is live at http://${env.DEPLOY_HOST}"
             }
         }
     }
