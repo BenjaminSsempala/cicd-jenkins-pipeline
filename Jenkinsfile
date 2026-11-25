@@ -64,6 +64,20 @@ pipeline {
             }
         }
 
+        // scanning the image
+        stage ('Scan Image'){
+            steps {
+                sh '''
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v trivy-cache:/root/.cache \
+              aquasec/trivy:0.76.1 image \
+              --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+              "$IMAGE:$TAG"
+        '''
+            }
+        }
+
         stage('Push Image') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'registry_creds', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {

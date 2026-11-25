@@ -2,6 +2,8 @@
 
 A small Node.js/Express web service that a Jenkins pipeline builds, tests, containerizes, pushes to a registry and deploys to EC2.
 
+Setup, operation, rollback, security and troubleshooting: see [RUNBOOK.md](RUNBOOK.md). Evidence: [screenshots/](screenshots/README.md).
+
 ## App
 
 | Route | Response |
