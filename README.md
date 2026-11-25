@@ -1,6 +1,6 @@
 # Complete CI/CD Pipeline (Jenkins)
 
-A small Flask web service that a Jenkins pipeline builds, tests, containerizes, pushes to a registry and deploys to EC2.
+A small Node.js/Express web service that a Jenkins pipeline builds, tests, containerizes, pushes to a registry and deploys to EC2.
 
 ## App
 
@@ -8,29 +8,29 @@ A small Flask web service that a Jenkins pipeline builds, tests, containerizes, 
 |---|---|
 | `GET /` | Greeting and app version |
 | `GET /health` | `{"status": "ok"}` |
-| `GET /add/<a>/<b>` | Sum of two integers |
+| `GET /add/:a/:b` | Sum of two integers (400 if either isn't an integer) |
 
 ## Run locally
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
-pytest -v
-python -m app.main        # http://localhost:5000
+npm install
+npm test
+npm start                 # http://localhost:3000
 ```
 
 ## Run with Docker
 
 ```bash
-docker build -t cicd-flask-app .
-docker run -d -p 5000:5000 --name cicd-flask-app cicd-flask-app
-curl http://localhost:5000/health
+docker build -t cicd-node-app .
+docker run -d -p 3000:3000 --name cicd-node-app cicd-node-app
+curl http://localhost:3000/health
 ```
 
 ## Project layout
 
 ```
-app/main.py         Flask app (create_app factory)
-tests/test_app.py   Unit tests (pytest)
-Dockerfile          Production image served with gunicorn
+src/app.js          Express app (exported so tests can use it without a server)
+src/server.js       Starts the server on PORT (default 3000)
+tests/app.test.js   Unit tests (Jest + Supertest)
+Dockerfile          Production image (node:22-alpine, prod dependencies only)
 ```
