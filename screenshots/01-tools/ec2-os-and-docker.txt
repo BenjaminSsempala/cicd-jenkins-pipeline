@@ -1,0 +1,6 @@
+$ cat /etc/system-release && uname -r && docker --version && docker ps
+Amazon Linux release 2 (Karoo)
+5.10.273-275.1133.amzn2.x86_64
+Docker version 25.0.18, build 0bab007
+CONTAINER ID   IMAGE                              COMMAND                  CREATED          STATUS                    PORTS                                   NAMES
+9962dc714eb9   benjaminssempala/cicd-node-app:2   "docker-entrypoint.s…"   35 minutes ago   Up 35 minutes (healthy)   0.0.0.0:80->3000/tcp, :::80->3000/tcp   cicd-node-app
