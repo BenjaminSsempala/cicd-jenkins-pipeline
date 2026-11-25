@@ -26,11 +26,26 @@ docker run -d -p 3000:3000 --name cicd-node-app cicd-node-app
 curl http://localhost:3000/health
 ```
 
+## Deploy server (Terraform)
+
+`infra/` creates the EC2 instance the pipeline deploys to: an RSA key pair, a security group (HTTP 80 from anywhere, SSH 22 from the Jenkins machine's IP) and an Amazon Linux 2 `t2.micro` that installs Docker on first boot.
+
+```bash
+cd infra
+cp terraform.tfvars.example terraform.tfvars   # set ssh_allowed_cidr to your public IP /32
+terraform init
+terraform apply
+terraform output                               # public IP, SSH command, private key path
+```
+
+The private key is written to `infra/keys/` (gitignored) and goes into the Jenkins `ec2_ssh` credential. Run `terraform destroy` when the lab is finished.
+
 ## Project layout
 
 ```
 src/app.js          Express app (exported so tests can use it without a server)
 src/server.js       Starts the server on PORT (default 3000)
 tests/app.test.js   Unit tests (Jest + Supertest)
-Dockerfile          Production image (node:22-alpine, prod dependencies only)
+Dockerfile          Multi-stage build: deps, test (--target test), runtime
+infra/              Terraform for the EC2 deploy server and key pair
 ```
