@@ -90,17 +90,44 @@ pipeline {
             }
         }
 
-        // Replace the running container with the new image, then remove images no container uses
+        // Keep the previous container until the new deployment passes its smoke test.
         stage('Deploy') {
             steps {
                 sshagent(credentials: ['ec2_ssh']) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=accept-new "$EC2_USER@$DEPLOY_HOST" bash -s <<EOF
+                        ssh -o StrictHostKeyChecking=accept-new "$EC2_USER@$DEPLOY_HOST" \
+                            bash -s -- "$IMAGE:$TAG" "$APP_NAME" "$TAG" <<'EOF'
 set -e
-docker pull "$IMAGE:$TAG"
-docker rm -f "$APP_NAME" 2>/dev/null || true
-docker run -d --name "$APP_NAME" --restart unless-stopped -p 80:3000 -e APP_VERSION="$TAG" "$IMAGE:$TAG"
-docker image prune -af
+image="$1"
+app="$2"
+version="$3"
+previous="${app}-previous"
+
+docker pull "$image"
+
+# If starting the replacement fails, restore the previous container.
+restore_on_error() {
+    trap - ERR
+    echo "Deployment failed; attempting to restore the previous container."
+    if docker container inspect "$previous" >/dev/null 2>&1; then
+        if docker container inspect "$app" >/dev/null 2>&1; then
+            docker rm -f "$app"
+        fi
+        docker rename "$previous" "$app"
+        docker start "$app"
+    else
+        echo "No previous container exists to restore."
+    fi
+}
+trap restore_on_error ERR
+
+if docker container inspect "$app" >/dev/null 2>&1; then
+    docker rename "$app" "$previous"
+    docker stop "$previous"
+fi
+
+docker run -d --name "$app" --restart unless-stopped -p 80:3000 -e APP_VERSION="$version" "$image"
+trap - ERR
 EOF
                     '''
                 }
@@ -109,8 +136,50 @@ EOF
 
         stage('Smoke Test') {
             steps {
-                sh 'curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "http://$DEPLOY_HOST/health"'
-                echo "App is live at http://${env.DEPLOY_HOST}"
+                script {
+                    try {
+                        sh 'curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "http://$DEPLOY_HOST/health"'
+                    } catch (smokeError) {
+                        echo 'Smoke test failed; attempting rollback.'
+                        sshagent(credentials: ['ec2_ssh']) {
+                            sh '''
+                                ssh -o StrictHostKeyChecking=accept-new "$EC2_USER@$DEPLOY_HOST" \
+                                    bash -s -- "$APP_NAME" <<'EOF'
+set -e
+app="$1"
+previous="${app}-previous"
+
+if docker container inspect "$app" >/dev/null 2>&1; then
+    docker rm -f "$app"
+fi
+if docker container inspect "$previous" >/dev/null 2>&1; then
+    docker rename "$previous" "$app"
+    docker start "$app"
+    echo "Previous container restored."
+else
+    echo "No previous container exists to restore."
+fi
+EOF
+                            '''
+                        }
+                        throw smokeError
+                    }
+
+                    // Remove the backup only after the new container responds.
+                    sshagent(credentials: ['ec2_ssh']) {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=accept-new "$EC2_USER@$DEPLOY_HOST" \
+                                bash -s -- "$APP_NAME" <<'EOF'
+set -e
+previous="${1}-previous"
+if docker container inspect "$previous" >/dev/null 2>&1; then
+    docker rm -f "$previous"
+fi
+EOF
+                        '''
+                    }
+                    echo "App is live at http://${env.DEPLOY_HOST}"
+                }
             }
         }
     }

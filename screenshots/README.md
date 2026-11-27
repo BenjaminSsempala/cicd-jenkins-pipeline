@@ -7,6 +7,7 @@
 | [jenkins-plugins-installed.png](01-tools/jenkins-plugins-installed.png) | Jenkins plugins installed (Git, GitHub, Pipeline, ...) |
 | [docker-version-local-run.png](01-tools/docker-version-local-run.png) | Docker 29.6.1, and the image running locally on port 3000 |
 | [ec2-instance-running.png](01-tools/ec2-instance-running.png) | EC2 deploy server `i-05c1af338bf51e2a9` (t2.micro, eu-west-1a) running, 2/2 status checks |
+| [ec2-os-and-docker.txt](01-tools/ec2-os-and-docker.txt) | EC2 OS is Amazon Linux 2 (Karoo), Docker 25.0.18, app container healthy |
 
 ## 2. Pipeline
 
